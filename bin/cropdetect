@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+#
+# Created:         Mo 2020-05-11 01:00:51 CEST
+# Last Modified:   Di 2020-07-14 13:51:13 CEST
+#
+# cropdetect:
+#   This script detects crop margins of videos.
+
+# Help text
+usage() {
+cat << EOF
+
+Usage: cropdetect <inputfile>
+
+OPTIONS:
+  -s <time>   Starting time (default: 2% of total time)
+  -t <time>   Termination time (default: 5% of total time)
+  -h          Show this help message
+EOF
+}
+
+set -e
+
+# Initialize options
+SS=
+T=
+FFMPEG=$(command -v ffmpeg)
+FFPROBE=$(command -v ffprobe)
+
+# Process options
+while getopts "s:t:h" OPTION
+do
+    case "$OPTION"
+    in
+        s)  SS=$OPTARG
+            ;;
+        t)  T=$OPTARG
+            ;;
+        h)  usage
+            exit 0
+            ;;
+        \?) usage
+            exit 1
+            ;;
+    esac
+done
+
+# Check if ffmpeg is available
+if [ ! -x "${FFMPEG}" ]
+then
+    echo "$0: ffmpeg not found, probably not installed"
+    exit 1
+fi
+
+# Check if ffprobe is available
+if [ ! -x "${FFPROBE}" ]
+then
+    echo "$0: ffprobe not found, probably not installed"
+    exit 1
+fi
+
+# Assert positive floating point numbers
+[ -z "$SS" ] || (( $(echo "$SS > 0" | bc -l) )) || exit 2
+[ -z "$T" ]  || (( $(echo "$T  > 0" | bc -l) )) || exit 3
+
+# Skip options and shift index
+shift $((OPTIND-1))
+
+# Loop over arguments
+while [ $# -gt 0 ]
+do
+
+    # get filename
+    infile=$1
+    shift
+
+    # Skip file if not existing
+    if [ ! -f "$infile" ]
+    then
+        echo "$infile does not exist... skipped"
+        continue
+    fi
+
+    # Get duration of first video stream in seconds
+    dur=$($FFPROBE -i "$infile" -show_format -v quiet | sed -n 's/duration=//p')
+
+    # Check duration
+    if (( $(echo "$dur <= 0" | bc -l) ))
+    then
+        echo "$infile has non-positive duration $dur ... skipped"
+        continue
+    fi
+
+    # Auto-define timeframe
+    if [ -z "$SS" ] && [ -z "$T" ]
+    then
+        # Empty starting and termination time
+        T0=$( echo "$dur*0.02" | bc -l )
+        T1=$( echo "$dur*0.05" | bc -l )
+
+    elif [ -z "$T" ]
+    then
+        # Empty termination time
+        T0="$SS"
+        T1=$( echo "$SS+$dur*0.03" | bc -l )
+
+    elif [ -z "$SS" ]
+    then
+        # Empty starting time
+        T0=$( echo "$T-$dur*0.03" | bc -l )
+        T1="$T"
+
+    else
+        # Defined starting and termination time
+        T0="$SS"
+        T1="$T"
+
+    fi
+
+    # Restrain start and end time
+    (( $(echo "$T1 < $dur" | bc -l) )) || T1="$dur"
+    (( $(echo "$T0 > 0"    | bc -l) )) || T0=0
+    (( $(echo "$T0 < $T1"  | bc -l) )) || T0=0
+
+    # Grep crop geometry
+    result=$($FFMPEG -ss "${T0}" -i "${infile}" -t "$T1" -vsync vfr -vf fps=1/2,cropdetect -f null - 2>&1 | awk '/crop/ { print $NF }' | tr ' ' '\n' | sort | uniq -c | sort -n | tail -1 | awk '{ print $NF }')
+
+    # Check result string
+    [ -n "${result}" ] && echo "${result}" || exit 4
+
+done
