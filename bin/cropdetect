@@ -19,9 +19,7 @@ OPTIONS:
 EOF
 }
 
-set -e
-
-# Initialize options
+# Initialization
 SS=
 T=
 FFMPEG=$(command -v ffmpeg)
