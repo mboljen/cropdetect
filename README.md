@@ -19,7 +19,7 @@ The default `PREFIX` is set to `/usr/local`.  In order to successfully complete 
 $ cropdetect [-s skiptime] [-t scantime] videofile
 ```
 
-`croptdetect` will skip `skiptime` seconds from the beginning and parse `scantime` seconds of the file `videofile` in order to detect potential black margins.  The default of `scantime` is 5 percent of the total duration of the video.  The default of `skiptime` is 2 percent of the total duration of the video.
+`croptdetect` will skip `skiptime` seconds from the beginning and parse `scantime` seconds of the file `videofile` in order to detect potential black margins.  The expected unit is seconds.  The default of `scantime` is 5 percent of the total duration of the video.  The default of `skiptime` is 2 percent of the total duration of the video.
 
 ## Contributing
 
