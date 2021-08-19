@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Created:         Mo 2020-05-11 01:00:51 CEST
-# Last Modified:   Di 2021-08-17 22:54:36 CEST
+# Last Modified:   Do 2021-08-19 02:10:33 CEST
 #
 # cropdetect:
 #   This script detects crop margins of videos.
@@ -127,9 +127,17 @@ do
     # Auto-define timeframe
     if [ -z "$SS" ] && [ -z "$T" ]
     then
-        # Empty starting and termination time
-        T0=$(echo "$dur*0.02" | bc -l)
-        T1=$(echo "$dur*0.05" | bc -l)
+
+        if (( $(echo "$dur <= 60"| bc -l) ))
+        then
+            # Use total length of clip if duration is less than 10 secs
+            T0=0
+            T1="$dur"
+        else
+            # Empty starting and termination time
+            T0=$(echo "$dur*0.02" | bc -l)
+            T1=$(echo "$dur*0.05" | bc -l)
+        fi
 
     elif [ -z "$T" ]
     then
@@ -155,8 +163,11 @@ do
     (( $(echo "$T0 > 0"    | bc -l) )) || T0=0
     (( $(echo "$T0 < $T1"  | bc -l) )) || T0=0
 
+    #echo "T0 = $T0"
+    #echo "T1 = $T1"
+
     # Grep crop geometry
-    result=$($FFMPEG -ss "$T0" -i "$infile" -t "$T1" -vsync vfr -vf fps=1/2,cropdetect -f null - 2>&1 | awk '/crop/ { print $NF }' | tr ' ' '\n' | sort | uniq -c | sort -n | tail -1 | awk '{ print $NF }')
+    result=$($FFMPEG -ss "$T0" -i "$infile" -t "$T1" -vsync vfr -vf "fps=1/2,cropdetect=24:2:0" -f null - 2>&1 | awk '/crop/ { print $NF }' | tr ' ' '\n' | sort | uniq -c | sort -n | tail -1 | awk '{ print $NF }')
 
     # Check result string
     [ -n "$result" ] && echo "$result" || exit 4
