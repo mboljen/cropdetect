@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Created:         Mo 2020-05-11 01:00:51 CEST
-# Last Modified:   Do 2021-08-19 02:23:52 CEST
+# Last Modified:   Do 2021-08-19 14:47:34 CEST
 #
 # cropdetect:
 #   This script detects crop margins of videos.
@@ -10,12 +10,17 @@
 usage () {
 cat << EOF
 
-Usage: cropdetect <inputfile>
+Usage: cropdetect [options] <file>
 
 OPTIONS:
-  -s <time>   Skip time (default: 2% of total time)
-  -t <time>   Scan time (default: 5% of total time)
-  -h          Show this help message
+  -s <time>    Skip time (default: 2% of total time)
+  -t <time>    Scan time (default: 5% of total time)
+  -c <string>  FFmpeg's cropdetect filter (limit:round:skip:reset)
+                  limit = black threshold (default: 24)
+                  round = output resolution divisor (default: 16)
+                  skip  = inital frames skipped (default: 2)
+                  reset = frames to restart detection process (default: 0)
+  -h           Show this help message
 EOF
 }
 
@@ -23,14 +28,19 @@ EOF
 FFMPEG=$(command -v ffmpeg)
 FFPROBE=$(command -v ffprobe)
 
+# Defaults of ffmpeg's cropdetect option "<limit>:<round>:<skip>"
+CROPDETECT="24:16:2:0"
+
 # Process options
-while getopts "s:t:h" OPTION
+while getopts "s:t:c:h" OPTION
 do
     case "$OPTION"
     in
         s)  SS="$OPTARG"
             ;;
         t)  T="$OPTARG"
+            ;;
+        c)  CROPDETECT="$OPTARG"
             ;;
         h)  usage
             exit 0
@@ -79,7 +89,6 @@ then
     exit 2
 fi
 
-
 # Pattern matching for T
 if [[ "$T" =~ $regex1 ]] || [[ "$T" =~ $regex2 ]] || [[ "$T" =~ $regex3 ]]
 then
@@ -93,8 +102,12 @@ then
     exit 3
 fi
 
-#echo "SS = $SS"
-#echo "T  = $T"
+# Pattern matching for CROPDETECT
+if [[ ! "$CROPDETECT" =~ ^[0-9]+(((:[0-9]+)?:[0-9]+)?:[0-9]+)?$ ]]
+then
+    echo "$0: Invalid cropdetect value '$CROPDETECT'"
+    exit 4
+fi
 
 # Skip options and shift index
 shift $((OPTIND-1))
@@ -167,9 +180,9 @@ do
     #echo "T1 = $T1"
 
     # Grep crop geometry
-    result=$($FFMPEG -ss "$T0" -i "$infile" -t "$T1" -vsync vfr -vf "fps=1/2,cropdetect=24:4:0" -f null - 2>&1 | awk '/crop/ { print $NF }' | tr ' ' '\n' | sort | uniq -c | sort -n | tail -1 | awk '{ print $NF }')
+    result=$($FFMPEG -ss "$T0" -i "$infile" -t "$T1" -vsync vfr -vf "fps=1/2,cropdetect=$CROPDETECT" -f null - 2>&1 | awk '/crop/ { print $NF }' | tr ' ' '\n' | sort | uniq -c | sort -n | tail -1 | awk '{ print $NF }')
 
     # Check result string
-    [ -n "$result" ] && echo "$result" || exit 4
+    [ -n "$result" ] && echo "$result" || exit 5
 
 done

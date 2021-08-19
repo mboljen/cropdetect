@@ -16,10 +16,12 @@ The default `PREFIX` is set to `/usr/local`.  In order to successfully complete 
 ## Usage
 
 ```bash
-$ cropdetect [-s skiptime] [-t scantime] videofile
+$ cropdetect [-s skiptime] [-t scantime] [-c limit:round:skip:reset] videofile
 ```
 
-`croptdetect` will skip `skiptime` seconds from the beginning and parse `scantime` seconds of the file `videofile` in order to detect potential black margins.  The expected unit is seconds.  The default of `scantime` is 5 percent of the total duration of the video.  The default of `skiptime` is 2 percent of the total duration of the video.
+`cropdetect` will skip `skiptime` seconds from the beginning and parse `scantime` seconds of the file `videofile` in order to detect potential black margins.  The expected unit is seconds.  The default of `scantime` is 5 percent of the total duration of the video.  The default of `skiptime` is 2 percent of the total duration of the video.  The `cropdetect` filter of `ffmpeg` can be specified if needed.  It defaults to `24:16:2:0`.
+
+
 
 ## Contributing
 
